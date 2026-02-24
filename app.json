@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Overture OSM Extractor",
+    "slug": "mobileiosovertureextract",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#007AFF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.spacialglacierlab.mobileiosovertureextract",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to center the map on your position.",
+        "NSLocationAlwaysUsageDescription": "We need your location to center the map on your position."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#007AFF"
+      },
+      "package": "com.spacialglacierlab.mobileiosovertureextract"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "locationWhenInUsePermission": "We need your location to center the map on your position."
+        }
+      ]
+    ]
+  }
+}
