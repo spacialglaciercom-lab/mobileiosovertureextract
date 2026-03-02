@@ -153,12 +153,17 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
     
     const minPoints = mode === 'polygon' ? 3 : 2;
 
+    // Get the current map style URL based on mode
+    const currentStyleURL = React.useMemo(() => {
+      return MAP_STYLES[mapMode];
+    }, [mapMode]);
+
     return (
       <View style={styles.container}>
         <MapLibreGL.MapView
           ref={mapRef}
           style={styles.map}
-          styleURL="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+          styleURL={currentStyleURL}
           onPress={handleMapPress}
         >
           <MapLibreGL.Camera
