@@ -19,7 +19,8 @@
       "bundleIdentifier": "com.spacialglacierlab.mobileiosovertureextract",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to center the map on your position.",
-        "NSLocationAlwaysUsageDescription": "We need your location to center the map on your position."
+        "NSLocationAlwaysUsageDescription": "We need your location to center the map on your position.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -33,12 +34,35 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "@maplibre/maplibre-react-native",
         {
-          "locationWhenInUsePermission": "We need your location to center the map on your position."
+          "RNMaplibreIOSVersion": "6.8.1"
         }
-      ]
-    ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1",
+            "extraPods": [
+              {
+                "name": "MapLibre",
+                "version": "6.8.1"
+              }
+            ]
+          }
+        }
+      ],
+      "./plugins/withSuppressWarnings",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b16ba305-e0ba-428c-b097-11287fcd16c1"
+      }
+    },
+    "owner": "777creative"
   }
 }

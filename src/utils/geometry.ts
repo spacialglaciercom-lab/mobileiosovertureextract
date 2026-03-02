@@ -9,7 +9,7 @@ import { Feature, MeasurementMetrics, Coordinate } from '../types';
  * Calculate area and perimeter of a polygon
  */
 export function calculateMetrics(polygon: Feature): MeasurementMetrics {
-  const areaM2 = area(polygon);
+  const areaM2 = area(polygon as any);
   const areaKm2 = areaM2 / 1_000_000;
   const perimeterKm = length(polygon, { units: 'kilometers' });
   

@@ -49,7 +49,7 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
       },
     }));
 
-    const handleMapPress = useCallback((event: MapLibreGL.MapPressEventData) => {
+    const handleMapPress = useCallback((event: any) => {
       if (!isDrawing) return;
 
       const { geometry } = event;
