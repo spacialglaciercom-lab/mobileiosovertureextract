@@ -161,6 +161,7 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
     return (
       <View style={styles.container}>
         <MapLibreGL.MapView
+          key={mapMode}
           ref={mapRef}
           style={styles.map}
           styleURL={currentStyleURL}
@@ -408,5 +409,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  modeSwitcher: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modeButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  modeButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });
