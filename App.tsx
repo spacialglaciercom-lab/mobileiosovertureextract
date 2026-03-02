@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 import { MapView, MapViewHandle } from './src/components/MapView';
@@ -25,9 +25,9 @@ import { PrivacyPolicy } from './src/components/PrivacyPolicy';
 import { Feedback } from './src/components/Feedback';
 import { webSocketService } from './src/services/WebSocketService';
 import { apiService } from './src/services/ApiService';
-import { calculateMetrics, isAreaValid, getAdvancedMetrics } from './src/utils/geometry';
-import { COLORS, MAX_AREA_KM2, DEFAULT_WS_URL } from './src/constants';
-import { Feature, Coordinate, ExtractionProgress, CityPreset, MeasurementMode, MeasurementMetrics } from './src/types';
+import { calculateMetrics, isAreaValid, getAdvancedMetrics, calculateSlopeGrid } from './src/utils/geometry';
+import { COLORS, MAX_AREA_KM2, DEFAULT_WS_URL, SLOPE_COLORS } from './src/constants';
+import { Feature, Coordinate, ExtractionProgress, CityPreset, MeasurementMode, MeasurementMetrics, SlopeCell } from './src/types';
 
 function AppContent() {
   // Safe area insets
@@ -49,6 +49,8 @@ function AppContent() {
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [geojsonUrl, setGeojsonUrl] = useState<string | null>(null);
+  const [slopeCells, setSlopeCells] = useState<SlopeCell[]>([]);
+  const [isLoadingSlope, setIsLoadingSlope] = useState(false);
 
   // Handle polygon creation
   const handlePolygonCreated = useCallback(async (feature: Feature, points: Coordinate[]) => {
@@ -87,7 +89,33 @@ function AppContent() {
     setExtractionProgress(null);
     setDownloadUrl(null);
     setGeojsonUrl(null);
+    setSlopeCells([]);
     webSocketService.disconnect();
+  }, []);
+
+  // Handle slope analysis
+  const handleShowSlope = useCallback(async () => {
+    if (polygonPoints.length < 3) return;
+
+    setIsLoadingSlope(true);
+    try {
+      const cells = await calculateSlopeGrid(polygonPoints, 8);
+      setSlopeCells(cells);
+      
+      if (cells.length === 0) {
+        Alert.alert('Slope Analysis', 'Could not calculate slope for this area.');
+      }
+    } catch (error: any) {
+      console.error('Slope analysis error:', error);
+      Alert.alert('Error', error?.message || 'Failed to analyze slope');
+    } finally {
+      setIsLoadingSlope(false);
+    }
+  }, [polygonPoints]);
+
+  // Clear slope overlay
+  const handleClearSlope = useCallback(() => {
+    setSlopeCells([]);
   }, []);
 
   // Handle extraction
@@ -195,6 +223,7 @@ function AppContent() {
           onPolygonCreated={handlePolygonCreated}
           onPolygonCleared={handlePolygonCleared}
           mode={mode}
+          slopeCells={slopeCells}
         />
 
         {/* Top Controls */}
@@ -312,17 +341,58 @@ function AppContent() {
             <ProgressCard progress={extractionProgress} />
           )}
 
+          {/* Slope Legend */}
+          {slopeCells.length > 0 && (
+            <View style={styles.slopeLegend}>
+              <Text style={[styles.statLabel, { marginBottom: 8 }]}>SLOPE LEGEND</Text>
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: SLOPE_COLORS.flat }]} />
+                  <Text style={styles.legendText}>0-5%</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: SLOPE_COLORS.gentle }]} />
+                  <Text style={styles.legendText}>5-10%</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: SLOPE_COLORS.moderate }]} />
+                  <Text style={styles.legendText}>10-15%</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: SLOPE_COLORS.steep }]} />
+                  <Text style={styles.legendText}>15-25%</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: SLOPE_COLORS.verySteep }]} />
+                  <Text style={styles.legendText}>25%+</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Actions */}
           <View style={styles.actions}>
             {!isExtracting && !downloadUrl && !geojsonUrl && (
               <>
-                <Button
-                  title="Extract & Process"
-                  onPress={handleExtract}
-                  variant="primary"
-                  size="large"
-                  style={styles.actionButton}
-                />
+                {mode === 'polygon' && (
+                  <>
+                    <Button
+                      title={isLoadingSlope ? "Analyzing Slope..." : slopeCells.length > 0 ? "Hide Slope" : "Show Slope"}
+                      onPress={slopeCells.length > 0 ? handleClearSlope : handleShowSlope}
+                      variant="secondary"
+                      size="medium"
+                      style={styles.actionButton}
+                      disabled={isLoadingSlope}
+                    />
+                    <Button
+                      title="Extract & Process"
+                      onPress={handleExtract}
+                      variant="primary"
+                      size="large"
+                      style={styles.actionButton}
+                    />
+                  </>
+                )}
                 <Button
                   title="Clear Selection"
                   onPress={handleReset}
@@ -463,6 +533,29 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  slopeLegend: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  legendItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendColor: {
+    width: 24,
+    height: 16,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
   },
   footer: {
     position: 'absolute',

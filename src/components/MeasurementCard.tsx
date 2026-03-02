@@ -14,6 +14,8 @@ export const MeasurementCard: React.FC<MeasurementCardProps> = ({
   metrics,
   pointCount,
 }) => {
+  const isAreaMode = metrics.area !== undefined;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -21,14 +23,31 @@ export const MeasurementCard: React.FC<MeasurementCardProps> = ({
         <Text style={styles.label}>LIVE MEASUREMENTS</Text>
       </View>
       <View style={styles.metrics}>
-        <View style={styles.metricRow}>
-          <Text style={styles.primaryValue}>{metrics.area.toFixed(3)}</Text>
-          <Text style={styles.unit}>km²</Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.secondaryValue}>{metrics.perimeter.toFixed(3)}</Text>
-          <Text style={styles.secondaryUnit}>km perimeter</Text>
-        </View>
+        {isAreaMode ? (
+          <>
+            <View style={styles.metricRow}>
+              <Text style={styles.primaryValue}>{metrics.area?.toFixed(3)}</Text>
+              <Text style={styles.unit}>km²</Text>
+            </View>
+            <View style={styles.metricRow}>
+              <Text style={styles.secondaryValue}>{metrics.perimeter?.toFixed(3)}</Text>
+              <Text style={styles.secondaryUnit}>km perimeter</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.metricRow}>
+              <Text style={styles.primaryValue}>{metrics.length?.toFixed(3)}</Text>
+              <Text style={styles.unit}>km</Text>
+            </View>
+            {metrics.heading !== undefined && (
+              <View style={styles.metricRow}>
+                <Text style={styles.secondaryValue}>{metrics.heading?.toFixed(1)}°</Text>
+                <Text style={styles.secondaryUnit}>heading</Text>
+              </View>
+            )}
+          </>
+        )}
         <View style={styles.metricRow}>
           <Text style={styles.pointValue}>{pointCount}</Text>
           <Text style={styles.pointLabel}>points</Text>

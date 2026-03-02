@@ -63,5 +63,24 @@ export const COLORS = {
   },
 };
 
+// Slope color scale (percentage grade)
+// 0-5%: flat (green), 5-10%: gentle (yellow-green), 10-15%: moderate (yellow),
+// 15-25%: steep (orange), 25%+: very steep (red)
+export const SLOPE_COLORS = {
+  flat: 'rgba(52, 199, 89, 0.6)',        // 0-5% - green
+  gentle: 'rgba(162, 212, 80, 0.6)',     // 5-10% - yellow-green
+  moderate: 'rgba(255, 204, 0, 0.6)',    // 10-15% - yellow
+  steep: 'rgba(255, 149, 0, 0.6)',       // 15-25% - orange
+  verySteep: 'rgba(255, 59, 48, 0.6)',   // 25%+ - red
+};
+
+export const getSlopeColor = (slopePercent: number): string => {
+  if (slopePercent < 5) return SLOPE_COLORS.flat;
+  if (slopePercent < 10) return SLOPE_COLORS.gentle;
+  if (slopePercent < 15) return SLOPE_COLORS.moderate;
+  if (slopePercent < 25) return SLOPE_COLORS.steep;
+  return SLOPE_COLORS.verySteep;
+};
+
 // Max area in km² for extraction
 export const MAX_AREA_KM2 = 100;

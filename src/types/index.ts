@@ -73,3 +73,11 @@ export interface DrawState {
   currentPoints: Coordinate[];
   polygonComplete: boolean;
 }
+
+// Slope visualization cell
+export interface SlopeCell {
+  coordinates: Coordinate[]; // 4 corners of the cell
+  slopePercent: number;      // Slope as percentage (rise/run * 100)
+  slopeDegrees: number;      // Slope in degrees
+  elevation: number;         // Average elevation of the cell
+}

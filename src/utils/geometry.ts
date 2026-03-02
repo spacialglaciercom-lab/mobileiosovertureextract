@@ -2,7 +2,7 @@
 
 import area from '@turf/area';
 import length from '@turf/length';
-import { Feature, MeasurementMetrics, Coordinate, MeasurementMode } from '../types';
+import { Feature, MeasurementMetrics, Coordinate, MeasurementMode, SlopeCell } from '../types';
 import { GOOGLE_ELEVATION_API_KEY } from '../constants';
 
 /**
@@ -202,4 +202,189 @@ export function distanceBetween(
  */
 export function isAreaValid(areaKm2: number, maxAreaKm2: number = 100): boolean {
   return areaKm2 <= maxAreaKm2;
+}
+
+/**
+ * Ray casting algorithm to check if a point is inside a polygon
+ */
+function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
+  const x = point.longitude;
+  const y = point.latitude;
+  let inside = false;
+  
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].longitude;
+    const yi = polygon[i].latitude;
+    const xj = polygon[j].longitude;
+    const yj = polygon[j].latitude;
+    
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    
+    if (intersect) inside = !inside;
+  }
+  
+  return inside;
+}
+
+/**
+ * Generate a grid of points within a polygon for slope analysis
+ */
+export function generateGridPoints(
+  polygonCoords: Coordinate[],
+  gridSize: number = 10 // Number of cells per side
+): { points: Coordinate[][]; cellSize: { lat: number; lng: number } } {
+  const bbox = getBoundingBox(polygonCoords);
+  
+  const latStep = (bbox.maxLat - bbox.minLat) / gridSize;
+  const lngStep = (bbox.maxLng - bbox.minLng) / gridSize;
+  
+  const points: Coordinate[][] = [];
+  
+  // Generate grid points (gridSize+1 points to create gridSize cells)
+  for (let i = 0; i <= gridSize; i++) {
+    const row: Coordinate[] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      const lat = bbox.minLat + i * latStep;
+      const lng = bbox.minLng + j * lngStep;
+      row.push({ latitude: lat, longitude: lng });
+    }
+    points.push(row);
+  }
+  
+  return { points, cellSize: { lat: latStep, lng: lngStep } };
+}
+
+/**
+ * Check if a cell is inside the polygon (center point inside)
+ */
+function isCellInPolygon(
+  corners: Coordinate[],
+  polygonCoords: Coordinate[]
+): boolean {
+  // Check if center of cell is inside polygon
+  const centerLat = (corners[0].latitude + corners[2].latitude) / 2;
+  const centerLng = (corners[0].longitude + corners[2].longitude) / 2;
+  const center: Coordinate = { latitude: centerLat, longitude: centerLng };
+  
+  return isPointInPolygon(center, polygonCoords);
+}
+
+/**
+ * Calculate slope cells for a polygon area using elevation data
+ */
+export async function calculateSlopeGrid(
+  polygonCoords: Coordinate[],
+  gridSize: number = 8 // Reduced for API limits
+): Promise<SlopeCell[]> {
+  const { points, cellSize } = generateGridPoints(polygonCoords, gridSize);
+  
+  // Flatten points for API call
+  const allPoints: Coordinate[] = [];
+  for (const row of points) {
+    for (const point of row) {
+      allPoints.push(point);
+    }
+  }
+  
+  // Fetch elevations (Google API has 512 points per request limit)
+  const elevations = await fetchElevations(allPoints);
+  if (!elevations || elevations.length === 0) {
+    throw new Error('Failed to fetch elevation data');
+  }
+  
+  // Reshape elevations back to grid
+  const elevationGrid: number[][] = [];
+  let idx = 0;
+  for (let i = 0; i <= gridSize; i++) {
+    const row: number[] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      row.push(elevations[idx] || 0);
+      idx++;
+    }
+    elevationGrid.push(row);
+  }
+  
+  // Calculate slope for each cell
+  const slopeCells: SlopeCell[] = [];
+  
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      // Cell corners (bottom-left, bottom-right, top-right, top-left)
+      const corners: Coordinate[] = [
+        points[i][j],
+        points[i][j + 1],
+        points[i + 1][j + 1],
+        points[i + 1][j],
+      ];
+      
+      // Skip cells outside polygon
+      if (!isCellInPolygon(corners, polygonCoords)) {
+        continue;
+      }
+      
+      // Get elevations at corners
+      const e00 = elevationGrid[i][j];
+      const e01 = elevationGrid[i][j + 1];
+      const e10 = elevationGrid[i + 1][j];
+      const e11 = elevationGrid[i + 1][j + 1];
+      
+      // Calculate average elevation
+      const avgElevation = (e00 + e01 + e10 + e11) / 4;
+      
+      // Calculate slope using gradient
+      // dz/dx and dz/dy in meters
+      const cellWidthMeters = cellSize.lng * 111320 * Math.cos((corners[0].latitude * Math.PI) / 180);
+      const cellHeightMeters = cellSize.lat * 110540;
+      
+      const dzdx = ((e01 - e00) + (e11 - e10)) / 2 / cellWidthMeters;
+      const dzdy = ((e10 - e00) + (e11 - e01)) / 2 / cellHeightMeters;
+      
+      // Slope magnitude
+      const slopeRatio = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
+      const slopePercent = slopeRatio * 100;
+      const slopeDegrees = Math.atan(slopeRatio) * (180 / Math.PI);
+      
+      slopeCells.push({
+        coordinates: corners,
+        slopePercent,
+        slopeDegrees,
+        elevation: avgElevation,
+      });
+    }
+  }
+  
+  return slopeCells;
+}
+
+/**
+ * Fetch elevations for an array of coordinates
+ */
+async function fetchElevations(coords: Coordinate[]): Promise<number[]> {
+  // Google Elevation API limit is 512 locations per request
+  const MAX_POINTS = 512;
+  
+  if (coords.length > MAX_POINTS) {
+    // Sample points if too many
+    const step = Math.ceil(coords.length / MAX_POINTS);
+    coords = coords.filter((_, i) => i % step === 0);
+  }
+  
+  const locations = coords.map(c => `${c.latitude},${c.longitude}`).join('|');
+  const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${locations}&key=${GOOGLE_ELEVATION_API_KEY}`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status !== 'OK' || !data.results) {
+      console.warn('Elevation API error:', data.status, data.error_message);
+      return [];
+    }
+    
+    return data.results.map((r: { elevation: number }) => r.elevation);
+  } catch (error) {
+    console.error('Failed to fetch elevations:', error);
+    return [];
+  }
 }

@@ -5,8 +5,8 @@ import { StyleSheet, View, TouchableOpacity, Text, Alert } from 'react-native';
 import RNMapView, { Marker, Polygon, Polyline, MapPressEvent, Region, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Coordinate, Feature, MeasurementMode } from '../types';
-import { COLORS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../constants';
+import { Coordinate, Feature, MeasurementMode, SlopeCell } from '../types';
+import { COLORS, DEFAULT_CENTER, DEFAULT_ZOOM, getSlopeColor } from '../constants';
 import { coordinatesToFeature } from '../utils/geometry';
 
 type MapType = 'standard' | 'satellite' | 'hybrid';
@@ -15,6 +15,7 @@ interface MapViewProps {
   onPolygonCreated: (feature: Feature, points: Coordinate[]) => void;
   onPolygonCleared: () => void;
   mode: MeasurementMode;
+  slopeCells?: SlopeCell[];
 }
 
 export interface MapViewHandle {
@@ -28,7 +29,7 @@ const zoomToLatitudeDelta = (zoom: number): number => {
 };
 
 export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
-  ({ onPolygonCreated, onPolygonCleared, mode }, ref) => {
+  ({ onPolygonCreated, onPolygonCleared, mode, slopeCells = [] }, ref) => {
     const insets = useSafeAreaInsets();
     const mapRef = useRef<RNMapView>(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -156,6 +157,20 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
               />
             )
           )}
+
+          {/* Slope overlay cells */}
+          {slopeCells.map((cell, index) => (
+            <Polygon
+              key={`slope-${index}`}
+              coordinates={cell.coordinates.map(c => ({
+                latitude: c.latitude,
+                longitude: c.longitude,
+              }))}
+              fillColor={getSlopeColor(cell.slopePercent)}
+              strokeColor="rgba(0,0,0,0.2)"
+              strokeWidth={0.5}
+            />
+          ))}
 
           {/* Point markers */}
           {points.map((point, index) => (
