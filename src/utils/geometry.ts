@@ -3,6 +3,7 @@
 import area from '@turf/area';
 import length from '@turf/length';
 import { Feature, MeasurementMetrics, Coordinate, MeasurementMode } from '../types';
+import { GOOGLE_ELEVATION_API_KEY } from '../constants';
 
 /**
  * Calculate geometry metrics based on feature type
@@ -57,31 +58,34 @@ export function calculateHeading(start: Coordinate, end: Coordinate): number {
 }
 
 /**
- * Fetch advanced metrics (elevation, slope) asynchronously
+ * Fetch advanced metrics (elevation, slope) asynchronously using Google Elevation API
  */
 export async function getAdvancedMetrics(coords: Coordinate[]): Promise<Partial<MeasurementMetrics>> {
   if (coords.length < 2) return {};
 
   try {
-    // Open-Meteo Elevation API (Free, no key)
-    const lats = coords.map(c => c.latitude).join(',');
-    const lngs = coords.map(c => c.longitude).join(',');
-    const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`;
+    // Google Elevation API
+    // Format: lat,lng|lat,lng|...
+    const locations = coords.map(c => `${c.latitude},${c.longitude}`).join('|');
+    const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${locations}&key=${GOOGLE_ELEVATION_API_KEY}`;
     
     const response = await fetch(url);
     const data = await response.json();
     
-    if (!data.elevation || !Array.isArray(data.elevation)) return {};
+    if (data.status !== 'OK' || !data.results || !Array.isArray(data.results)) {
+      console.warn('Google Elevation API error:', data.status, data.error_message);
+      return {};
+    }
     
-    const elevations: number[] = data.elevation;
+    const elevations: number[] = data.results.map((r: { elevation: number }) => r.elevation);
     
     // Sort for stats
     const sortedElev = [...elevations].sort((a, b) => a - b);
-    const minElev = sortedElev[0];
-    const maxElev = sortedElev[sortedElev.length - 1];
-    const medianElev = sortedElev[Math.floor(sortedElev.length / 2)];
+    const minElev = Math.round(sortedElev[0]);
+    const maxElev = Math.round(sortedElev[sortedElev.length - 1]);
+    const medianElev = Math.round(sortedElev[Math.floor(sortedElev.length / 2)]);
 
-    // Calculate slopes
+    // Calculate slopes between consecutive points
     const slopes: number[] = [];
     for (let i = 0; i < coords.length - 1; i++) {
       const dist = distanceBetween(coords[i], coords[i+1]);

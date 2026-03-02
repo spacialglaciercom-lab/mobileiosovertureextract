@@ -34,6 +34,9 @@ export const CITY_PRESETS: CityPreset[] = [
 export const DEFAULT_WS_URL = 'wss://striking-reflection-backend.up.railway.app';
 export const OVERTURE_RELEASE = '2026-02-18.0';
 
+// Google Elevation API
+export const GOOGLE_ELEVATION_API_KEY = 'AIzaSyBXG4Fv186cM6pRBfGaziBbmgK8feUksS8';
+
 // Map configuration
 export const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
 export const DEFAULT_ZOOM = 12;
