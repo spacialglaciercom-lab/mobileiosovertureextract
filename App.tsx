@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system';
@@ -20,11 +21,13 @@ import { BottomSheet } from './src/components/BottomSheet';
 import { MeasurementCard } from './src/components/MeasurementCard';
 import { ProgressCard } from './src/components/ProgressCard';
 import { CityPicker } from './src/components/CityPicker';
+import { PrivacyPolicy } from './src/components/PrivacyPolicy';
+import { Feedback } from './src/components/Feedback';
 import { webSocketService } from './src/services/WebSocketService';
 import { apiService } from './src/services/ApiService';
-import { calculateMetrics, isAreaValid } from './src/utils/geometry';
+import { calculateMetrics, isAreaValid, getAdvancedMetrics } from './src/utils/geometry';
 import { COLORS, MAX_AREA_KM2, DEFAULT_WS_URL } from './src/constants';
-import { Feature, Coordinate, ExtractionProgress, CityPreset } from './src/types';
+import { Feature, Coordinate, ExtractionProgress, CityPreset, MeasurementMode, MeasurementMetrics } from './src/types';
 
 export default function App() {
   // Map reference
@@ -32,21 +35,24 @@ export default function App() {
 
   // State
   const [currentPolygon, setCurrentPolygon] = useState<Feature | null>(null);
+  const [mode, setMode] = useState<MeasurementMode>('polygon');
   const [polygonPoints, setPolygonPoints] = useState<Coordinate[]>([]);
-  const [metrics, setMetrics] = useState<{ area: number; perimeter: number } | null>(null);
+  const [metrics, setMetrics] = useState<MeasurementMetrics | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [geojsonUrl, setGeojsonUrl] = useState<string | null>(null);
 
   // Handle polygon creation
-  const handlePolygonCreated = useCallback((polygon: Feature, points: Coordinate[]) => {
-    const newMetrics = calculateMetrics(polygon);
+  const handlePolygonCreated = useCallback(async (feature: Feature, points: Coordinate[]) => {
+    const newMetrics = calculateMetrics(feature);
 
     // Check area limit
-    if (!isAreaValid(newMetrics.area, MAX_AREA_KM2)) {
+    if (feature.geometry.type === 'Polygon' && newMetrics.area && !isAreaValid(newMetrics.area, MAX_AREA_KM2)) {
       Alert.alert(
         'Area Too Large',
         `The selected area (${newMetrics.area.toFixed(1)} km²) exceeds the maximum of ${MAX_AREA_KM2} km². Please draw a smaller polygon.`,
@@ -55,11 +61,19 @@ export default function App() {
       return;
     }
 
-    setCurrentPolygon(polygon);
+    setCurrentPolygon(feature);
     setPolygonPoints(points);
     setMetrics(newMetrics);
     setShowBottomSheet(true);
-  }, []);
+
+    // Advanced metrics
+    try {
+      const advanced = await getAdvancedMetrics(points);
+      setMetrics((prev) => (prev ? { ...prev, ...advanced } : advanced));
+    } catch (e) {
+      console.warn('Failed to fetch advanced metrics');
+    }
+  }, [mode]);
 
   // Handle polygon cleared
   const handlePolygonCleared = useCallback(() => {
@@ -90,11 +104,23 @@ export default function App() {
           if (progress.stage === 'complete') {
             setIsExtracting(false);
             const httpUrl = DEFAULT_WS_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+            const baseUrl = httpUrl.endsWith('/') ? httpUrl.slice(0, -1) : httpUrl;
+            
             if (progress.geojson_url) {
-              setGeojsonUrl(`${httpUrl}${progress.geojson_url}`);
+              if (progress.geojson_url.startsWith('http')) {
+                setGeojsonUrl(progress.geojson_url);
+              } else {
+                const path = progress.geojson_url.startsWith('/') ? progress.geojson_url : `/${progress.geojson_url}`;
+                setGeojsonUrl(`${baseUrl}${path}`);
+              }
             }
             if (progress.download_url) {
-              setDownloadUrl(`${httpUrl}${progress.download_url}`);
+               if (progress.download_url.startsWith('http')) {
+                setDownloadUrl(progress.download_url);
+              } else {
+                const path = progress.download_url.startsWith('/') ? progress.download_url : `/${progress.download_url}`;
+                setDownloadUrl(`${baseUrl}${path}`);
+              }
             }
             webSocketService.disconnect();
           } else if (progress.stage === 'error') {
@@ -119,6 +145,7 @@ export default function App() {
   // Handle download
   const handleDownload = useCallback(async (url: string, filename: string) => {
     try {
+      // @ts-ignore
       const downloadPath = `${FileSystem.documentDirectory}${filename}`;
       
       const downloadResult = await FileSystem.downloadAsync(url, downloadPath);
@@ -128,8 +155,9 @@ export default function App() {
       } else {
         Alert.alert('Download Complete', `File saved to: ${downloadResult.uri}`);
       }
-    } catch (error) {
-      Alert.alert('Download Error', 'Failed to download file');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      Alert.alert('Download Error', `Failed to download file: ${error?.message || JSON.stringify(error)}`);
     }
   }, []);
 
@@ -156,7 +184,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
         {/* Map */}
@@ -164,22 +192,30 @@ export default function App() {
           ref={mapRef}
           onPolygonCreated={handlePolygonCreated}
           onPolygonCleared={handlePolygonCleared}
+          mode={mode}
         />
 
         {/* Top Controls */}
         <View style={styles.topControls}>
-          <Button
-            title="📍 Cities"
-            onPress={() => setShowCityPicker(true)}
-            variant="secondary"
-            size="small"
-          />
-          <Button
-            title="🎯"
-            onPress={handleGeolocate}
-            variant="secondary"
-            size="small"
-          />
+          <View style={{flexDirection: 'row', gap: 8}}>
+            <Button title="Area" onPress={() => setMode('polygon')} variant={mode === 'polygon' ? 'primary' : 'secondary'} size="small" />
+            <Button title="Line" onPress={() => setMode('two_point')} variant={mode === 'two_point' ? 'primary' : 'secondary'} size="small" />
+            <Button title="Path" onPress={() => setMode('path')} variant={mode === 'path' ? 'primary' : 'secondary'} size="small" />
+          </View>
+          <View style={{flexDirection: 'row', gap: 8}}>
+            <Button
+              title="📍 Cities"
+              onPress={() => setShowCityPicker(true)}
+              variant="secondary"
+              size="small"
+            />
+            <Button
+              title="🎯"
+              onPress={handleGeolocate}
+              variant="secondary"
+              size="small"
+            />
+          </View>
         </View>
 
         {/* Measurement Card */}
@@ -200,29 +236,74 @@ export default function App() {
         <BottomSheet
           visible={showBottomSheet}
           onClose={() => setShowBottomSheet(false)}
-          title="Polygon Selected"
-          subtitle={metrics ? `${metrics.area.toFixed(3)} km² • ${metrics.perimeter.toFixed(3)} km perimeter` : undefined}
+          title={mode === 'polygon' ? "Area Measurement" : "Distance Measurement"}
+          subtitle={
+            metrics?.area
+              ? `${metrics.area.toFixed(3)} km² • ${metrics.perimeter?.toFixed(3)} km perimeter`
+              : metrics?.length
+              ? `${metrics.length.toFixed(3)} km`
+              : undefined
+          }
         >
           {/* Stats */}
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>POINTS</Text>
-              <Text style={[styles.statValue, polygonPoints.length >= 3 && styles.statValid]}>
-                {polygonPoints.length}
-              </Text>
-              <Text style={styles.statHint}>/ 3 min</Text>
+              <Text style={styles.statValue}>{polygonPoints.length}</Text>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>AREA</Text>
-              <Text style={styles.statValue}>{metrics?.area.toFixed(3)}</Text>
-              <Text style={styles.statHint}>km²</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>PERIMETER</Text>
-              <Text style={styles.statValue}>{metrics?.perimeter.toFixed(2)}</Text>
-              <Text style={styles.statHint}>km</Text>
-            </View>
+
+            {mode === 'polygon' ? (
+              <>
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>AREA</Text>
+                  <Text style={styles.statValue}>{metrics?.area?.toFixed(3)}</Text>
+                  <Text style={styles.statHint}>km²</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>PERIMETER</Text>
+                  <Text style={styles.statValue}>{metrics?.perimeter?.toFixed(2)}</Text>
+                  <Text style={styles.statHint}>km</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.statBox}>
+                  <Text style={styles.statLabel}>LENGTH</Text>
+                  <Text style={styles.statValue}>{metrics?.length?.toFixed(3)}</Text>
+                  <Text style={styles.statHint}>km</Text>
+                </View>
+                {metrics?.heading !== undefined ? (
+                  <View style={styles.statBox}>
+                    <Text style={styles.statLabel}>HEADING</Text>
+                    <Text style={styles.statValue}>{metrics.heading.toFixed(1)}°</Text>
+                  </View>
+                ) : <View style={styles.statBox} />}
+              </>
+            )}
           </View>
+
+          {/* Advanced Metrics */}
+          {metrics?.minElevation !== undefined && (
+            <View style={{ marginBottom: 16, paddingHorizontal: 4 }}>
+              <Text style={[styles.statLabel, { marginBottom: 8 }]}>ELEVATION (m)</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text>Min: {metrics.minElevation}m</Text>
+                <Text>Med: {metrics.medianElevation}m</Text>
+                <Text>Max: {metrics.maxElevation}m</Text>
+              </View>
+            </View>
+          )}
+
+          {metrics?.minSlope !== undefined && (
+            <View style={{ marginBottom: 16, paddingHorizontal: 4 }}>
+              <Text style={[styles.statLabel, { marginBottom: 8 }]}>SLOPE (°)</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text>Min: {metrics.minSlope?.toFixed(1)}°</Text>
+                <Text>Med: {metrics.medianSlope?.toFixed(1)}°</Text>
+                <Text>Max: {metrics.maxSlope?.toFixed(1)}°</Text>
+              </View>
+            </View>
+          )}
 
           {/* Progress */}
           {isExtracting && extractionProgress && (
@@ -281,7 +362,39 @@ export default function App() {
             )}
           </View>
         </BottomSheet>
-      </SafeAreaView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => setShowFeedback(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.footerIcon}>💬</Text>
+            <Text style={styles.footerText}>Feedback</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={() => setShowPrivacyPolicy(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.footerIcon}>🛡️</Text>
+            <Text style={styles.footerText}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Privacy Policy Modal */}
+        <PrivacyPolicy
+          visible={showPrivacyPolicy}
+          onClose={() => setShowPrivacyPolicy(false)}
+        />
+
+        {/* Feedback Modal */}
+        <Feedback
+          visible={showFeedback}
+          onClose={() => setShowFeedback(false)}
+        />
+      </View>
     </SafeAreaProvider>
   );
 }
@@ -293,9 +406,9 @@ const styles = StyleSheet.create({
   },
   topControls: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
+    top: 140,
+    left: 16,
+    flexDirection: 'column',
     gap: 8,
   },
   measurementCard: {
@@ -342,5 +455,40 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+  },
+  footerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  footerIcon: {
+    fontSize: 12,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });
