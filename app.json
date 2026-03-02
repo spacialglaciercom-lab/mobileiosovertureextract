@@ -36,12 +36,6 @@
     "plugins": [
       "expo-dev-client",
       [
-        "@maplibre/maplibre-react-native",
-        {
-          "RNMaplibreIOSVersion": "6.8.1"
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "ios": {

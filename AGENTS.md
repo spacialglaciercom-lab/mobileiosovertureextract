@@ -26,15 +26,11 @@ Both iOS and Android bundles should return HTTP 200 with ~7MB payloads.
 
 ### Web mode caveat
 
-`npx expo start --web` will serve HTML but the JS bundle fails to compile because `@maplibre/maplibre-react-native` is a native-only module with no web shim. This is expected — do not treat it as a bug.
+`npx expo start --web` will serve HTML but the JS bundle may fail to compile because `react-native-maps` is a native-only module with no web shim. This is expected — do not treat it as a bug.
 
 ### Lint
 
 The `package.json` has `"lint": "eslint ."` but no ESLint config file (`.eslintrc.*` or `eslint.config.*`) exists in the repo. Running `npm run lint` will fail with a missing config error. This is a pre-existing issue.
-
-### TypeScript
-
-`npx tsc --noEmit` reports 3 pre-existing type errors related to MapLibre and Turf.js type incompatibilities. These do not block bundling or runtime.
 
 ### Missing assets
 

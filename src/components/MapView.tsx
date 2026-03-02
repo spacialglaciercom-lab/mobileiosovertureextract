@@ -1,30 +1,21 @@
-// Map View component with polygon drawing
+// Map View component with polygon drawing using Apple Maps
 
 import React, { useRef, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Platform } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import RNMapView, { Marker, Polygon, Polyline, MapPressEvent, Region, PROVIDER_DEFAULT } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Coordinate, Feature, MeasurementMode } from '../types';
 import { COLORS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../constants';
 import { coordinatesToFeature } from '../utils/geometry';
 
-// Configure MapLibre
-MapLibreGL.setAccessToken(null);
-
-const MAP_STYLES = {
-  LIGHT: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-  DARK: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  SATELLITE: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-};
-
-type MapMode = 'LIGHT' | 'DARK' | 'SATELLITE';
+type MapType = 'standard' | 'satellite' | 'hybrid';
 
 interface MapViewProps {
   onPolygonCreated: (feature: Feature, points: Coordinate[]) => void;
   onPolygonCleared: () => void;
   mode: MeasurementMode;
-  mapRef?: React.RefObject<MapLibreGL.MapView>;
 }
 
 export interface MapViewHandle {
@@ -33,15 +24,25 @@ export interface MapViewHandle {
   getLocation: () => Promise<[number, number] | null>;
 }
 
+const zoomToLatitudeDelta = (zoom: number): number => {
+  return 360 / Math.pow(2, zoom);
+};
+
 export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
   ({ onPolygonCreated, onPolygonCleared, mode }, ref) => {
     const insets = useSafeAreaInsets();
-    const cameraRef = useRef<MapLibreGL.Camera>(null);
-    const mapRef = useRef<MapLibreGL.MapView>(null);
+    const mapRef = useRef<RNMapView>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [points, setPoints] = useState<Coordinate[]>([]);
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-    const [mapMode, setMapMode] = useState<MapMode>('LIGHT');
+    const [mapType, setMapType] = useState<MapType>('standard');
+
+    const initialRegion: Region = {
+      latitude: DEFAULT_CENTER[1],
+      longitude: DEFAULT_CENTER[0],
+      latitudeDelta: zoomToLatitudeDelta(DEFAULT_ZOOM),
+      longitudeDelta: zoomToLatitudeDelta(DEFAULT_ZOOM),
+    };
 
     const handleClear = useCallback(() => {
       setPoints([]);
@@ -49,38 +50,45 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
       onPolygonCleared();
     }, [onPolygonCleared]);
 
-    // Expose methods to parent
     useImperativeHandle(ref, () => ({
       flyTo: (coords: [number, number], zoom: number) => {
-        cameraRef.current?.setCamera({
-          centerCoordinate: coords,
-          zoomLevel: zoom,
-          animationDuration: 2000,
-        });
+        const delta = zoomToLatitudeDelta(zoom);
+        mapRef.current?.animateToRegion({
+          latitude: coords[1],
+          longitude: coords[0],
+          latitudeDelta: delta,
+          longitudeDelta: delta,
+        }, 2000);
       },
       clearPolygon: handleClear,
       getLocation: async () => {
-        return userLocation;
+        if (userLocation) return userLocation;
+        
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return null;
+        
+        const location = await Location.getCurrentPositionAsync({});
+        const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
+        setUserLocation(coords);
+        return coords;
       },
     }));
 
-    const handleMapPress = useCallback((event: any) => {
+    const handleMapPress = useCallback((event: MapPressEvent) => {
       if (!isDrawing) return;
 
-      const { geometry } = event;
-      if (geometry && geometry.coordinates) {
-        const newPoint: Coordinate = {
-          longitude: geometry.coordinates[0],
-          latitude: geometry.coordinates[1],
-        };
+      const { coordinate } = event.nativeEvent;
+      const newPoint: Coordinate = {
+        longitude: coordinate.longitude,
+        latitude: coordinate.latitude,
+      };
 
-        setPoints((prev) => {
-          if (mode === 'two_point' && prev.length >= 2) {
-            return [newPoint];
-          }
-          return [...prev, newPoint];
-        });
-      }
+      setPoints((prev) => {
+        if (mode === 'two_point' && prev.length >= 2) {
+          return [newPoint];
+        }
+        return [...prev, newPoint];
+      });
     }, [isDrawing, mode]);
 
     const finishDrawing = useCallback(() => {
@@ -104,26 +112,6 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
       setIsDrawing(false);
     }, []);
 
-    const onUserLocationUpdate = useCallback((location: MapLibreGL.Location) => {
-      if (location && location.coords) {
-        setUserLocation([location.coords.longitude, location.coords.latitude]);
-      }
-    }, []);
-
-    // Create GeoJSON for feature
-    const featureGeoJSON = React.useMemo(() => {
-      const minPoints = mode === 'polygon' ? 3 : 2;
-      if (points.length < minPoints) return null;
-
-      const feature = coordinatesToFeature(points, mode);
-      if (!feature) return null;
-
-      return {
-        type: 'FeatureCollection' as const,
-        features: [feature],
-      };
-    }, [points, mode]);
-
     const getModeLabel = () => {
       switch (mode) {
         case 'polygon': return 'Polygon';
@@ -135,101 +123,81 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
     
     const minPoints = mode === 'polygon' ? 3 : 2;
 
-    // Get the current map style URL based on mode
-    const currentStyleURL = MAP_STYLES[mapMode];
+    const polygonCoords = points.map(p => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+    }));
 
     return (
       <View style={styles.container}>
-        <MapLibreGL.MapView
-          key={`map-${mapMode}`}
+        <RNMapView
           ref={mapRef}
           style={styles.map}
-          styleURL={currentStyleURL}
+          provider={PROVIDER_DEFAULT}
+          mapType={mapType}
+          initialRegion={initialRegion}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
           onPress={handleMapPress}
+          onUserLocationChange={(event) => {
+            const { coordinate } = event.nativeEvent;
+            if (coordinate) {
+              setUserLocation([coordinate.longitude, coordinate.latitude]);
+            }
+          }}
         >
-          <MapLibreGL.Camera
-            ref={cameraRef}
-            zoomLevel={DEFAULT_ZOOM}
-            centerCoordinate={DEFAULT_CENTER}
-          />
-
-          <MapLibreGL.UserLocation
-            visible={true}
-            onUpdate={onUserLocationUpdate}
-          />
-
-          {/* Drawn feature */}
-          {featureGeoJSON && (
-            <MapLibreGL.ShapeSource
-              id="feature-source"
-              shape={featureGeoJSON as any}
-            >
-              {mode === 'polygon' && (
-                <MapLibreGL.FillLayer
-                  id="polygon-fill"
-                  style={{
-                    fillColor: COLORS.polygon.fill,
-                  }}
-                />
-              )}
-              <MapLibreGL.LineLayer
-                id="feature-stroke"
-                style={{
-                  lineColor: COLORS.polygon.stroke,
-                  lineWidth: 3,
-                }}
+          {/* Polygon/Polyline */}
+          {points.length >= 2 && (
+            mode === 'polygon' && points.length >= 3 ? (
+              <Polygon
+                coordinates={polygonCoords}
+                fillColor={COLORS.polygon.fill}
+                strokeColor={COLORS.polygon.stroke}
+                strokeWidth={3}
               />
-            </MapLibreGL.ShapeSource>
+            ) : (
+              <Polyline
+                coordinates={polygonCoords}
+                strokeColor={COLORS.polygon.stroke}
+                strokeWidth={3}
+              />
+            )
           )}
 
-          {/* Drawn points */}
-          {points.length > 0 && (
-            <MapLibreGL.ShapeSource
-              id="points-source"
-              shape={{
-                type: 'FeatureCollection',
-                features: points.map((p) => ({
-                  type: 'Feature',
-                  geometry: {
-                    type: 'Point',
-                    coordinates: [p.longitude, p.latitude],
-                  },
-                  properties: {},
-                })),
+          {/* Point markers */}
+          {points.map((point, index) => (
+            <Marker
+              key={`point-${index}`}
+              coordinate={{
+                latitude: point.latitude,
+                longitude: point.longitude,
               }}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <MapLibreGL.CircleLayer
-                id="points-layer"
-                style={{
-                  circleRadius: 8,
-                  circleColor: COLORS.primary,
-                  circleStrokeColor: '#fff',
-                  circleStrokeWidth: 2,
-                }}
-              />
-            </MapLibreGL.ShapeSource>
-          )}
-        </MapLibreGL.MapView>
+              <View style={styles.markerDot} />
+            </Marker>
+          ))}
+        </RNMapView>
 
-        {/* Map Mode Switcher */}
+        {/* Map Type Switcher */}
         <View style={[styles.modeSwitcher, { top: insets.top + 10 }]}>
           <TouchableOpacity
-            style={[styles.modeButton, mapMode === 'LIGHT' && styles.modeButtonActive]}
-            onPress={() => setMapMode('LIGHT')}
+            style={[styles.modeButton, mapType === 'standard' && styles.modeButtonActive]}
+            onPress={() => setMapType('standard')}
           >
-            <Ionicons name="map-outline" size={20} color={mapMode === 'LIGHT' ? '#fff' : '#000'} />
+            <Ionicons name="map-outline" size={20} color={mapType === 'standard' ? '#fff' : '#000'} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.modeButton, mapMode === 'DARK' && styles.modeButtonActive]}
-            onPress={() => setMapMode('DARK')}
+            style={[styles.modeButton, mapType === 'hybrid' && styles.modeButtonActive]}
+            onPress={() => setMapType('hybrid')}
           >
-            <Ionicons name="moon-outline" size={20} color={mapMode === 'DARK' ? '#fff' : '#000'} />
+            <Ionicons name="layers-outline" size={20} color={mapType === 'hybrid' ? '#fff' : '#000'} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.modeButton, mapMode === 'SATELLITE' && styles.modeButtonActive]}
-            onPress={() => setMapMode('SATELLITE')}
+            style={[styles.modeButton, mapType === 'satellite' && styles.modeButtonActive]}
+            onPress={() => setMapType('satellite')}
           >
-            <Ionicons name="earth-outline" size={20} color={mapMode === 'SATELLITE' ? '#fff' : '#000'} />
+            <Ionicons name="earth-outline" size={20} color={mapType === 'satellite' ? '#fff' : '#000'} />
           </TouchableOpacity>
         </View>
 
@@ -421,5 +389,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
+  },
+  markerDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
 });

@@ -8,7 +8,7 @@ A React Native iOS application for extracting road networks from Overture Maps d
 
 ## Features
 
-- **Interactive Map Drawing**: Draw polygons by tapping points on the map using MapLibre GL Native
+- **Interactive Map Drawing**: Draw polygons by tapping points on the map using Apple Maps
 - **Real-time Measurements**: Live area (km²) and perimeter (km) calculations
 - **Full Extraction Pipeline**: Backend extraction with WebSocket progress streaming
 - **Network Graph Generation**: Convert road segments to NetworkX graphs
@@ -20,7 +20,7 @@ A React Native iOS application for extracting road networks from Overture Maps d
 
 ### Mobile
 - **React Native** + **Expo** - Cross-platform mobile development
-- **MapLibre React Native** - Native map rendering
+- **react-native-maps** - Native Apple Maps integration
 - **Turf.js** - Geospatial calculations
 - **Expo FileSystem & Sharing** - File download and sharing
 
@@ -179,7 +179,7 @@ The app communicates with the backend via:
 ### Map Not Loading
 
 - Ensure you have internet connectivity
-- MapLibre requires a valid style URL
+- Check that location permissions are granted
 
 ### Location Not Working
 
@@ -194,7 +194,7 @@ The app communicates with the backend via:
 ## Credits
 
 - [Overture Maps Foundation](https://overturemaps.org/) for open road data
-- [MapLibre](https://maplibre.org/) for native mapping
+- [Apple Maps](https://developer.apple.com/maps/) for native mapping
 - [Expo](https://expo.dev/) for React Native tooling
 
 ## License
