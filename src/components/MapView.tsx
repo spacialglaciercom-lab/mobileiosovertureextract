@@ -15,25 +15,7 @@ MapLibreGL.setAccessToken(null);
 const MAP_STYLES = {
   LIGHT: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
   DARK: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  SATELLITE: JSON.stringify({
-    version: 8,
-    sources: {
-      'satellite-tiles': {
-        type: 'raster',
-        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-        tileSize: 256
-      }
-    },
-    layers: [
-      {
-        id: 'satellite-layer',
-        type: 'raster',
-        source: 'satellite-tiles',
-        minzoom: 0,
-        maxzoom: 22
-      }
-    ]
-  })
+  SATELLITE: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 };
 
 type MapMode = 'LIGHT' | 'DARK' | 'SATELLITE';
@@ -154,14 +136,12 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
     const minPoints = mode === 'polygon' ? 3 : 2;
 
     // Get the current map style URL based on mode
-    const currentStyleURL = React.useMemo(() => {
-      return MAP_STYLES[mapMode];
-    }, [mapMode]);
+    const currentStyleURL = MAP_STYLES[mapMode];
 
     return (
       <View style={styles.container}>
         <MapLibreGL.MapView
-          key={mapMode}
+          key={`map-${mapMode}`}
           ref={mapRef}
           style={styles.map}
           styleURL={currentStyleURL}
