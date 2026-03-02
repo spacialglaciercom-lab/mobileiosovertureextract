@@ -8,12 +8,12 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  TouchableWithoutFeedback,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
 import { COLORS } from '../constants';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface PrivacyPolicyProps {
   visible: boolean;
@@ -28,28 +28,26 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <SafeAreaView style={styles.safeArea}>
         <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={styles.dialog}>
-              <View style={styles.header}>
-                <Text style={styles.title}>Privacy Policy</Text>
-                <Text style={styles.subtitle}>Last updated: March 2, 2026</Text>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Text style={styles.closeText}>✕</Text>
-                </TouchableOpacity>
-              </View>
+          <View style={styles.dialog}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Privacy Policy</Text>
+              <Text style={styles.subtitle}>Last updated: March 2, 2026</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.closeText}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-              <ScrollView 
-                style={styles.content} 
-                contentContainerStyle={styles.contentContainer}
-                showsVerticalScrollIndicator={true}
-                bounces={true}
-                nestedScrollEnabled={true}
-              >
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+            >
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>1. Introduction</Text>
                   <Text style={styles.sectionText}>
@@ -158,17 +156,19 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({
                 </View>
               </ScrollView>
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          </View>
+        </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  safeArea: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  overlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -176,15 +176,14 @@ const styles = StyleSheet.create({
   dialog: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    width: '100%',
+    width: SCREEN_WIDTH - 40,
     maxWidth: 500,
-    maxHeight: SCREEN_HEIGHT * 0.8,
+    height: SCREEN_HEIGHT * 0.75,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
-    overflow: 'hidden',
   },
   header: {
     padding: 20,
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
-  content: {
+  scrollView: {
     flex: 1,
   },
   contentContainer: {
