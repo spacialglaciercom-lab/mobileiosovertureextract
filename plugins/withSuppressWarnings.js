@@ -12,19 +12,26 @@ const withSuppressWarnings = (config) => {
         let otherCflags = buildConfig.buildSettings.OTHER_CFLAGS;
 
         if (!otherCflags) {
-          otherCflags = ['$(inherited)'];
+          // Use quoted strings for pbxproj compatibility with Xcode 26 / nanaimo parser
+          otherCflags = ['"$(inherited)"'];
         }
         
         // Ensure it's an array for consistent processing
         if (typeof otherCflags === 'string') {
-          // Split by space but respect quoted strings if necessary
-          // For simplicity, if it's a string we'll just check if it contains the flag
           if (!otherCflags.includes('-Wno-deprecated-declarations')) {
             buildConfig.buildSettings.OTHER_CFLAGS = `${otherCflags} -Wno-deprecated-declarations`;
           }
         } else if (Array.isArray(otherCflags)) {
-          if (!otherCflags.includes('-Wno-deprecated-declarations')) {
-            otherCflags.push('-Wno-deprecated-declarations');
+          // Ensure $(inherited) is quoted for pbxproj compatibility
+          otherCflags = otherCflags.map(flag => {
+            if (flag === '$(inherited)') {
+              return '"$(inherited)"';
+            }
+            return flag;
+          });
+          
+          if (!otherCflags.some(f => f.includes('-Wno-deprecated-declarations'))) {
+            otherCflags.push('"-Wno-deprecated-declarations"');
           }
           buildConfig.buildSettings.OTHER_CFLAGS = otherCflags;
         }
