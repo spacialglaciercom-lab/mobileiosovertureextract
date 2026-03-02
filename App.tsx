@@ -186,7 +186,6 @@ function AppContent() {
   }, []);
 
   return (
-    <SafeAreaProvider>
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
