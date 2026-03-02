@@ -45,13 +45,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1",
-            "extraPods": [
-              {
-                "name": "MapLibre",
-                "version": "6.8.1"
-              }
-            ]
+            "deploymentTarget": "15.1"
           }
         }
       ],
