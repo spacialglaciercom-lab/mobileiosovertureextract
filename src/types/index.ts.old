@@ -5,43 +5,21 @@ export interface Coordinate {
   latitude: number;
 }
 
-export interface PolygonGeometry {
+export interface Polygon {
   type: 'Polygon';
   coordinates: number[][][];
 }
 
-export interface LineStringGeometry {
-  type: 'LineString';
-  coordinates: number[][];
-}
-
-export interface PointGeometry {
-  type: 'Point';
-  coordinates: number[];
-}
-
-export type Geometry = PolygonGeometry | LineStringGeometry | PointGeometry;
-
 export interface Feature {
   type: 'Feature';
-  geometry: Geometry;
+  geometry: Polygon;
   properties?: Record<string, unknown>;
 }
 
 export interface MeasurementMetrics {
-  area?: number;
-  perimeter?: number; // or length for paths
-  length?: number;
-  heading?: number;
-  minElevation?: number;
-  maxElevation?: number;
-  medianElevation?: number;
-  minSlope?: number;
-  maxSlope?: number;
-  medianSlope?: number;
+  area: number;
+  perimeter: number;
 }
-
-export type MeasurementMode = 'polygon' | 'path' | 'two_point';
 
 export interface ExtractionProgress {
   stage: 'downloading' | 'clipping' | 'building_graph' | 'complete' | 'error';

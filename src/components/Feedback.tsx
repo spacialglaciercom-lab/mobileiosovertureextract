@@ -30,12 +30,14 @@ export const Feedback: React.FC<FeedbackProps> = ({
   const [feedbackType, setFeedbackType] = useState<FeedbackType>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleClose = () => {
     setFeedbackType(null);
     setTitle('');
     setDescription('');
+    setEmail('');
     onClose();
   };
 
@@ -43,6 +45,7 @@ export const Feedback: React.FC<FeedbackProps> = ({
     setFeedbackType(null);
     setTitle('');
     setDescription('');
+    setEmail('');
   };
 
   const handleSubmit = async () => {
@@ -57,6 +60,7 @@ export const Feedback: React.FC<FeedbackProps> = ({
       type: feedbackType,
       title: title.trim(),
       description: description.trim(),
+      email: email.trim() || undefined,
       url: 'mobile-app',
       userAgent: `React Native / ${Platform.OS}`,
     };
@@ -177,6 +181,23 @@ export const Feedback: React.FC<FeedbackProps> = ({
                   />
                 </View>
 
+                {/* Email Input */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Email <Text style={styles.inputOptional}>(optional - for follow-up)</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="your@email.com"
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
                 {/* Description Input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>
@@ -193,7 +214,7 @@ export const Feedback: React.FC<FeedbackProps> = ({
                     value={description}
                     onChangeText={setDescription}
                     multiline
-                    numberOfLines={4}
+                    numberOfLines={3}
                     textAlignVertical="top"
                   />
                 </View>

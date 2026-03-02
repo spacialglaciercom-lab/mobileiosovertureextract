@@ -1,18 +1,47 @@
 // Map View component with polygon drawing
 
-import React, { useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import React, { useRef, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
+import { StyleSheet, View, TouchableOpacity, Text, Platform } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
-import { Coordinate, Feature } from '../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { Coordinate, Feature, MeasurementMode } from '../types';
 import { COLORS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../constants';
-import { coordinatesToPolygon } from '../utils/geometry';
+import { coordinatesToFeature } from '../utils/geometry';
 
 // Configure MapLibre
 MapLibreGL.setAccessToken(null);
 
+const MAP_STYLES = {
+  LIGHT: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  DARK: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  SATELLITE: JSON.stringify({
+    version: 8,
+    sources: {
+      'satellite-tiles': {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256
+      }
+    },
+    layers: [
+      {
+        id: 'satellite-layer',
+        type: 'raster',
+        source: 'satellite-tiles',
+        minzoom: 0,
+        maxzoom: 22
+      }
+    ]
+  })
+};
+
+type MapMode = 'LIGHT' | 'DARK' | 'SATELLITE';
+
 interface MapViewProps {
-  onPolygonCreated: (polygon: Feature, points: Coordinate[]) => void;
+  onPolygonCreated: (feature: Feature, points: Coordinate[]) => void;
   onPolygonCleared: () => void;
+  mode: MeasurementMode;
   mapRef?: React.RefObject<MapLibreGL.MapView>;
 }
 
@@ -23,12 +52,20 @@ export interface MapViewHandle {
 }
 
 export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
-  ({ onPolygonCreated, onPolygonCleared }, ref) => {
+  ({ onPolygonCreated, onPolygonCleared, mode }, ref) => {
+    const insets = useSafeAreaInsets();
     const cameraRef = useRef<MapLibreGL.Camera>(null);
     const mapRef = useRef<MapLibreGL.MapView>(null);
-    const [isDrawing, setIsDrawing] = React.useState(false);
-    const [points, setPoints] = React.useState<Coordinate[]>([]);
-    const [userLocation, setUserLocation] = React.useState<[number, number] | null>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [points, setPoints] = useState<Coordinate[]>([]);
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+    const [mapMode, setMapMode] = useState<MapMode>('LIGHT');
+
+    const handleClear = useCallback(() => {
+      setPoints([]);
+      setIsDrawing(false);
+      onPolygonCleared();
+    }, [onPolygonCleared]);
 
     // Expose methods to parent
     useImperativeHandle(ref, () => ({
@@ -39,11 +76,7 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
           animationDuration: 2000,
         });
       },
-      clearPolygon: () => {
-        setPoints([]);
-        setIsDrawing(false);
-        onPolygonCleared();
-      },
+      clearPolygon: handleClear,
       getLocation: async () => {
         return userLocation;
       },
@@ -60,21 +93,24 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
         };
 
         setPoints((prev) => {
-          const newPoints = [...prev, newPoint];
-          return newPoints;
+          if (mode === 'two_point' && prev.length >= 2) {
+            return [newPoint];
+          }
+          return [...prev, newPoint];
         });
       }
-    }, [isDrawing]);
+    }, [isDrawing, mode]);
 
     const finishDrawing = useCallback(() => {
-      if (points.length >= 3) {
-        const polygon = coordinatesToPolygon(points);
-        if (polygon) {
-          onPolygonCreated(polygon, points);
+      const minPoints = mode === 'polygon' ? 3 : 2;
+      if (points.length >= minPoints) {
+        const feature = coordinatesToFeature(points, mode);
+        if (feature) {
+          onPolygonCreated(feature, points);
         }
       }
       setIsDrawing(false);
-    }, [points, onPolygonCreated]);
+    }, [points, onPolygonCreated, mode]);
 
     const startDrawing = useCallback(() => {
       setPoints([]);
@@ -92,36 +128,37 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
       }
     }, []);
 
-    // Create GeoJSON for polygon fill
-    const polygonGeoJSON = React.useMemo(() => {
-      if (points.length < 3) return null;
+    // Create GeoJSON for feature
+    const featureGeoJSON = React.useMemo(() => {
+      const minPoints = mode === 'polygon' ? 3 : 2;
+      if (points.length < minPoints) return null;
 
-      const ring = [
-        ...points.map((p) => [p.longitude, p.latitude]),
-        [points[0].longitude, points[0].latitude],
-      ];
+      const feature = coordinatesToFeature(points, mode);
+      if (!feature) return null;
 
       return {
         type: 'FeatureCollection' as const,
-        features: [
-          {
-            type: 'Feature' as const,
-            geometry: {
-              type: 'Polygon' as const,
-              coordinates: [ring],
-            },
-            properties: {},
-          },
-        ],
+        features: [feature],
       };
-    }, [points]);
+    }, [points, mode]);
+
+    const getModeLabel = () => {
+      switch (mode) {
+        case 'polygon': return 'Polygon';
+        case 'path': return 'Path';
+        case 'two_point': return 'Line';
+        default: return 'Measure';
+      }
+    };
+    
+    const minPoints = mode === 'polygon' ? 3 : 2;
 
     return (
       <View style={styles.container}>
         <MapLibreGL.MapView
           ref={mapRef}
           style={styles.map}
-          styleURL="https://demotiles.maplibre.org/style.json"
+          styleURL="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
           onPress={handleMapPress}
         >
           <MapLibreGL.Camera
@@ -135,20 +172,22 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
             onUpdate={onUserLocationUpdate}
           />
 
-          {/* Drawn polygon fill */}
-          {polygonGeoJSON && (
+          {/* Drawn feature */}
+          {featureGeoJSON && (
             <MapLibreGL.ShapeSource
-              id="polygon-source"
-              shape={polygonGeoJSON}
+              id="feature-source"
+              shape={featureGeoJSON as any}
             >
-              <MapLibreGL.FillLayer
-                id="polygon-fill"
-                style={{
-                  fillColor: COLORS.polygon.fill,
-                }}
-              />
+              {mode === 'polygon' && (
+                <MapLibreGL.FillLayer
+                  id="polygon-fill"
+                  style={{
+                    fillColor: COLORS.polygon.fill,
+                  }}
+                />
+              )}
               <MapLibreGL.LineLayer
-                id="polygon-stroke"
+                id="feature-stroke"
                 style={{
                   lineColor: COLORS.polygon.stroke,
                   lineWidth: 3,
@@ -186,8 +225,40 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
           )}
         </MapLibreGL.MapView>
 
+        {/* Map Mode Switcher */}
+        <View style={[styles.modeSwitcher, { top: insets.top + 10 }]}>
+          <TouchableOpacity
+            style={[styles.modeButton, mapMode === 'LIGHT' && styles.modeButtonActive]}
+            onPress={() => setMapMode('LIGHT')}
+          >
+            <Ionicons name="map-outline" size={20} color={mapMode === 'LIGHT' ? '#fff' : '#000'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, mapMode === 'DARK' && styles.modeButtonActive]}
+            onPress={() => setMapMode('DARK')}
+          >
+            <Ionicons name="moon-outline" size={20} color={mapMode === 'DARK' ? '#fff' : '#000'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, mapMode === 'SATELLITE' && styles.modeButtonActive]}
+            onPress={() => setMapMode('SATELLITE')}
+          >
+            <Ionicons name="earth-outline" size={20} color={mapMode === 'SATELLITE' ? '#fff' : '#000'} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Clear Button */}
+        {points.length > 0 && !isDrawing && (
+           <TouchableOpacity
+              style={[styles.clearButton, { top: insets.top + 60 }]}
+              onPress={handleClear}
+           >
+             <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+           </TouchableOpacity>
+        )}
+
         {/* Drawing Controls */}
-        <View style={styles.controls}>
+        <View style={[styles.controls, { paddingBottom: insets.bottom + 20 }]}>
           {!isDrawing ? (
             <TouchableOpacity
               style={styles.drawButton}
@@ -195,12 +266,12 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
               activeOpacity={0.7}
             >
               <Text style={styles.drawButtonIcon}>📐</Text>
-              <Text style={styles.drawButtonText}>Draw Polygon</Text>
+              <Text style={styles.drawButtonText}>Draw {getModeLabel()}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.drawingControls}>
               <Text style={styles.drawingHint}>
-                Tap to add points ({points.length}/3 min)
+                Tap to add points ({points.length}/{minPoints} min)
               </Text>
               <View style={styles.drawingButtons}>
                 <TouchableOpacity
@@ -209,7 +280,7 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
-                {points.length >= 3 && (
+                {points.length >= minPoints && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.finishButton]}
                     onPress={finishDrawing}
@@ -226,7 +297,7 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
         {isDrawing && (
           <View style={styles.drawingIndicator}>
             <Text style={styles.drawingIndicatorText}>
-              Tap map to add points • Need {Math.max(0, 3 - points.length)} more
+              Tap map to add points • Need {Math.max(0, minPoints - points.length)} more
             </Text>
           </View>
         )}
