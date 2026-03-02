@@ -11,7 +11,7 @@ import {
   Linking,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
@@ -29,7 +29,10 @@ import { calculateMetrics, isAreaValid, getAdvancedMetrics } from './src/utils/g
 import { COLORS, MAX_AREA_KM2, DEFAULT_WS_URL } from './src/constants';
 import { Feature, Coordinate, ExtractionProgress, CityPreset, MeasurementMode, MeasurementMetrics } from './src/types';
 
-export default function App() {
+function AppContent() {
+  // Safe area insets
+  const insets = useSafeAreaInsets();
+  
   // Map reference
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -196,7 +199,7 @@ export default function App() {
         />
 
         {/* Top Controls */}
-        <View style={styles.topControls}>
+        <View style={[styles.topControls, { top: insets.top + 16 }]}>
           <View style={{flexDirection: 'row', gap: 8}}>
             <Button title="Area" onPress={() => setMode('polygon')} variant={mode === 'polygon' ? 'primary' : 'secondary'} size="small" />
             <Button title="Line" onPress={() => setMode('two_point')} variant={mode === 'two_point' ? 'primary' : 'secondary'} size="small" />
@@ -395,6 +398,13 @@ export default function App() {
           onClose={() => setShowFeedback(false)}
         />
       </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
@@ -406,7 +416,6 @@ const styles = StyleSheet.create({
   },
   topControls: {
     position: 'absolute',
-    top: 140,
     left: 16,
     flexDirection: 'column',
     gap: 8,
