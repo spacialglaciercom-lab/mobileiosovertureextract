@@ -21,6 +21,12 @@ export const CITY_PRESETS: CityPreset[] = [
   { name: 'Dallas', coords: [-96.7970, 32.7767], zoom: 12 },
   { name: 'Ottawa', coords: [-75.6972, 45.4215], zoom: 13 },
   { name: 'Calgary', coords: [-114.0719, 51.0447], zoom: 13 },
+  { name: 'Edmonton', coords: [-113.4938, 53.5461], zoom: 13 },
+  { name: 'Winnipeg', coords: [-97.1384, 49.8951], zoom: 13 },
+  { name: 'Quebec City', coords: [-71.2080, 46.8139], zoom: 13 },
+  { name: 'Hamilton', coords: [-79.8711, 43.2557], zoom: 13 },
+  { name: 'Halifax', coords: [-63.5752, 44.6488], zoom: 13 },
+  { name: 'Victoria', coords: [-123.3656, 48.4284], zoom: 13 },
   { name: 'Portland', coords: [-122.6765, 45.5152], zoom: 13 },
 ];
 
