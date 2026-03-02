@@ -1,9 +1,8 @@
 // Map View component with polygon drawing using Apple Maps
 
 import React, { useRef, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Alert } from 'react-native';
 import RNMapView, { Marker, Polygon, Polyline, MapPressEvent, Region, PROVIDER_DEFAULT } from 'react-native-maps';
-import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Coordinate, Feature, MeasurementMode } from '../types';
@@ -63,14 +62,8 @@ export const MapViewComponent = forwardRef<MapViewHandle, MapViewProps>(
       clearPolygon: handleClear,
       getLocation: async () => {
         if (userLocation) return userLocation;
-        
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return null;
-        
-        const location = await Location.getCurrentPositionAsync({});
-        const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-        setUserLocation(coords);
-        return coords;
+        Alert.alert('Location', 'Enable location services and allow access to use this feature.');
+        return null;
       },
     }));
 
