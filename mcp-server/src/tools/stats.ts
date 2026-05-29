@@ -29,7 +29,8 @@ export const getStatsTool: Tool<GetStatsInput, GraphStats> = {
   },
 
   handler: async (args: GetStatsInput): Promise<ToolResponse<GraphStats>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for stats retrieval
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const stats = await client.getStats(args.hash);

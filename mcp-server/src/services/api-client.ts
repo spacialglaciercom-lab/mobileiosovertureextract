@@ -17,11 +17,11 @@ export class ApiClient {
   private client: AxiosInstance;
   private baseUrl: string;
 
-  constructor(baseUrl?: string) {
+  constructor(baseUrl?: string, timeoutMs: number = 300000) {
     this.baseUrl = baseUrl || process.env.OVERTURE_BACKEND_URL || 'http://localhost:8080';
     this.client = axios.create({
       baseURL: this.baseUrl,
-      timeout: 30000,
+      timeout: timeoutMs, // Default 5 minutes to match backend timeout
       headers: {
         'Content-Type': 'application/json',
       },

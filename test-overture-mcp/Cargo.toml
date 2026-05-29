@@ -1,0 +1,8 @@
+[package]
+name = "test-overture-mcp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+overture-mcp = "0.1.0"
+tokio = { version = "1.35", features = ["full"] }

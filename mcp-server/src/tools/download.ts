@@ -44,7 +44,8 @@ export const downloadGraphTool: Tool<DownloadGraphInput, DownloadGraphResponse> 
   },
 
   handler: async (args: DownloadGraphInput): Promise<ToolResponse<DownloadGraphResponse>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for large graph downloads
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const graphData = await client.downloadGraph(args.hash);
@@ -136,7 +137,8 @@ export const downloadGeoJsonTool: Tool<DownloadGeoJsonInput, DownloadGeoJsonResp
   handler: async (
     args: DownloadGeoJsonInput
   ): Promise<ToolResponse<DownloadGeoJsonResponse>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for large GeoJSON downloads
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const geojson = await client.downloadGeoJson(args.hash);

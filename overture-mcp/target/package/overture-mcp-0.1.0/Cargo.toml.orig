@@ -1,0 +1,54 @@
+[package]
+name = "overture-mcp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Overture MCP Contributors"]
+license = "MIT OR Apache-2.0"
+description = "Model Context Protocol (MCP) server for Overture Maps road network extraction"
+homepage = "https://github.com/spacialglaciercom-lab/mobileiosovertureextract"
+repository = "https://github.com/spacialglaciercom-lab/mobileiosovertureextract"
+documentation = "https://docs.rs/overture-mcp"
+readme = "README.md"
+keywords = ["mcp", "overture-maps", "road-network", "geospatial", "protocol"]
+categories = ["network-programming", "asynchronous", "science::geo"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# WebSocket
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", optional = true }
+
+# Async trait
+async-trait = "0.1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.2"
+
+[features]
+default = []
+logging = ["tracing-subscriber"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

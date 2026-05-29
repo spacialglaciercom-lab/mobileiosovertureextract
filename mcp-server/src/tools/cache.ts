@@ -32,7 +32,8 @@ export const listCacheTool: Tool<ListCacheInput, CacheListResponse> = {
   },
 
   handler: async (args: ListCacheInput): Promise<ToolResponse<CacheListResponse>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for cache operations
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const result = await client.listCache();
@@ -92,7 +93,8 @@ export const clearCacheTool: Tool<ClearCacheInput, ClearCacheResponse> = {
   },
 
   handler: async (args: ClearCacheInput): Promise<ToolResponse<ClearCacheResponse>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for cache operations
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const result = await client.clearCache(args.hash);

@@ -70,7 +70,8 @@ export const extractCheckTool: Tool<ExtractCheckInput, ExtractionResult> = {
   },
 
   handler: async (args: ExtractCheckInput): Promise<ToolResponse<ExtractionResult>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use 5 minute timeout for cache check (should be fast, but allow for network delays)
+    const client = new ApiClient(args.backend_url, 300000);
 
     try {
       const result = await client.extractPolygon(args.polygon);

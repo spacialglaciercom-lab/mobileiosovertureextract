@@ -22,7 +22,8 @@ export const healthCheckTool: Tool<HealthCheckInput, HealthCheckResponse> = {
   },
 
   handler: async (args: HealthCheckInput): Promise<ToolResponse<HealthCheckResponse>> => {
-    const client = new ApiClient(args.backend_url);
+    // Use shorter timeout for health checks (30 seconds is sufficient)
+    const client = new ApiClient(args.backend_url, 30000);
 
     try {
       const result = await client.healthCheck();
