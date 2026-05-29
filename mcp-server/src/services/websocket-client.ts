@@ -44,10 +44,10 @@ export class WebSocketClient {
             })
           );
         });
-      } catch (error) {
+      } catch (error: any) {
         reject(
           new BackendError('Failed to create WebSocket connection', {
-            error: (error as Error).message,
+            error: error.message,
           })
         );
       }
@@ -68,10 +68,10 @@ export class WebSocketClient {
 
     return new Promise((resolve, reject) => {
       const progressStages: ExtractionProgress[] = [];
-      let timeoutHandle: NodeJS.Timeout;
+      let timeoutHandle: any;
 
       // Set up timeout
-      timeoutHandle = setTimeout(() => {
+      timeoutHandle = global.setTimeout(() => {
         this.disconnect();
         reject(
           new TimeoutError(`Extraction timed out after ${timeoutMs / 1000} seconds`, {
@@ -89,7 +89,7 @@ export class WebSocketClient {
 
           // Check for completion or error
           if (progress.stage === 'complete') {
-            clearTimeout(timeoutHandle);
+            global.clearTimeout(timeoutHandle);
             resolve({
               status: 'complete',
               hash: this.extractHashFromUrl(progress.download_url || ''),
@@ -100,7 +100,7 @@ export class WebSocketClient {
               progress_stages: progressStages,
             });
           } else if (progress.stage === 'error') {
-            clearTimeout(timeoutHandle);
+            global.clearTimeout(timeoutHandle);
             reject(
               new BackendError(`Extraction failed: ${progress.error}`, {
                 progress_stages: progressStages,
@@ -114,7 +114,7 @@ export class WebSocketClient {
 
       // Handle errors
       const errorHandler = (error: Error) => {
-        clearTimeout(timeoutHandle);
+        global.clearTimeout(timeoutHandle);
         reject(
           new BackendError('WebSocket error during extraction', {
             error: error.message,
@@ -125,7 +125,7 @@ export class WebSocketClient {
 
       // Handle close
       const closeHandler = () => {
-        clearTimeout(timeoutHandle);
+        global.clearTimeout(timeoutHandle);
         // Only reject if we haven't resolved yet
         if (progressStages.length === 0 || progressStages[progressStages.length - 1].stage !== 'complete') {
           reject(
@@ -144,11 +144,11 @@ export class WebSocketClient {
       // Send polygon
       try {
         this.ws!.send(JSON.stringify({ polygon }));
-      } catch (error) {
-        clearTimeout(timeoutHandle);
+      } catch (error: any) {
+        global.clearTimeout(timeoutHandle);
         reject(
           new BackendError('Failed to send polygon', {
-            error: (error as Error).message,
+            error: error.message,
           })
         );
       }

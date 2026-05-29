@@ -112,7 +112,8 @@ export class ApiClient {
       return response.data;
     } catch (error) {
       // If endpoint doesn't exist, return empty list
-      if ((error as BackendError).details?.status === 404) {
+      const backendError = error as BackendError;
+      if (backendError.details && (backendError.details as any).status === 404) {
         return {
           cached_extractions: [],
           total_count: 0,
@@ -134,7 +135,8 @@ export class ApiClient {
       return response.data;
     } catch (error) {
       // If endpoint doesn't exist, return error
-      if ((error as BackendError).details?.status === 404) {
+      const backendError = error as BackendError;
+      if (backendError.details && (backendError.details as any).status === 404) {
         throw new BackendError(
           'Cache management endpoints not available. Backend may need to be updated.'
         );

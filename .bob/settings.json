@@ -2,7 +2,7 @@
   "mcpServers": {
     "overture-maps": {
       "command": "node",
-      "args": ["mcp-server/dist/index.js"],
+      "args": ["mcp-server/dist/index-simple.js"],
       "env": {
         "OVERTURE_BACKEND_URL": "http://localhost:8080",
         "OVERTURE_WS_URL": "ws://localhost:8080"

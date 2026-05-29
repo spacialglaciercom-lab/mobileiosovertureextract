@@ -2,7 +2,7 @@
  * Download Tools
  */
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import {
   Tool,
@@ -86,10 +86,10 @@ export const downloadGraphTool: Tool<DownloadGraphInput, DownloadGraphResponse> 
           ],
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       const response: DownloadGraphResponse = {
         success: false,
-        error: (error as Error).message,
+        error: error.message,
       };
 
       return {
@@ -179,10 +179,10 @@ export const downloadGeoJsonTool: Tool<DownloadGeoJsonInput, DownloadGeoJsonResp
           ],
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       const response: DownloadGeoJsonResponse = {
         success: false,
-        error: (error as Error).message,
+        error: error.message,
       };
 
       return {

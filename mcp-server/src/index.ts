@@ -12,7 +12,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool as MCPTool,
 } from '@modelcontextprotocol/sdk/types.js';
 import * as dotenv from 'dotenv';
 
@@ -66,7 +65,7 @@ tools.forEach((tool) => {
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   console.error('Received list tools request');
   
-  const mcpTools: MCPTool[] = tools.map((tool) => ({
+  const mcpTools = tools.map((tool) => ({
     name: tool.definition.name,
     description: tool.definition.description,
     inputSchema: tool.definition.inputSchema,
@@ -78,7 +77,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 });
 
 // Handle call tool request
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const toolName = request.params.name;
   const args = request.params.arguments || {};
 
@@ -98,7 +97,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const result = await tool.handler(args);
     console.error(`Tool ${toolName} completed successfully`);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Tool ${toolName} failed:`, error);
     
     // Return error response
@@ -108,7 +107,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           type: 'text',
           text: JSON.stringify(
             {
-              error: (error as Error).message,
+              error: error.message,
               tool: toolName,
             },
             null,
