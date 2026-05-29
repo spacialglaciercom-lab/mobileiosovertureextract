@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "overture-maps": {
+      "command": "node",
+      "args": ["mcp-server/dist/index.js"],
+      "env": {
+        "OVERTURE_BACKEND_URL": "http://localhost:8080",
+        "OVERTURE_WS_URL": "ws://localhost:8080"
+      },
+      "trust": true,
+      "includeTools": [
+        "overture_health_check",
+        "overture_extract_check",
+        "overture_extract_polygon",
+        "overture_download_graph",
+        "overture_download_geojson",
+        "overture_get_stats",
+        "overture_list_cache",
+        "overture_clear_cache"
+      ]
+    }
+  }
+}
